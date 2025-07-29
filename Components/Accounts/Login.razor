@@ -52,6 +52,7 @@
         if (userAccount == null || !BCrypt.Net.BCrypt.Verify(UserViewModel.Password, userAccount.PasswordHash))
         {
             errormessage = "Invalid username or Password";
+            return;
         }
 
         var claim = new List<Claim>
