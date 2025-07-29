@@ -1,0 +1,26 @@
+﻿@page "/logout"
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject NavigationManager navManager
+@inject IHttpContextAccessor httpContextAccessor
+
+<h3>Logout</h3>
+
+<div>
+    <h3>
+        You are logged out
+    </h3>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var context = httpContextAccessor.HttpContext;
+
+        if (context != null && context.User.Identity.IsAuthenticated)
+        {
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+        navManager.NavigateTo("/");
+    }
+}

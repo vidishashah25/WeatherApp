@@ -1,0 +1,73 @@
+﻿@page "/login"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.Http
+@using WeatherApp.Data;
+@using WeatherApp.Models.ViewModel;
+@inject AppDbContext db
+@inject NavigationManager navManager
+
+<h3 class="text-center mb-4">Login</h3>
+
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-6 col-lg-5 shadow-lg p-4 rounded-4 bg-white">
+        <EditForm Model="UserViewModel" OnValidSubmit="AuthenticateMethod" FormName="LoginForm">
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <InputText @bind-Value="UserViewModel.Username" class="form-control form-control-lg" placeholder="Enter username" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <InputText type="password" @bind-Value="UserViewModel.Password" class="form-control form-control-lg" placeholder="Enter password" />
+            </div>
+            @if (!string.IsNullOrEmpty(errormessage))
+            {
+                <div class="alert alert-danger py-2 mb-3" role="alert">@errormessage</div>
+            }
+            <button type="submit" class="btn btn-primary w-100 py-2">Login</button>
+        </EditForm>
+        <div class="text-center mt-3">
+            Not Registered?
+            <a href="/register" class="text-decoration-none">Register here</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    public HttpContext? _httpContext { get; set; }
+
+    private string errormessage;
+
+    [SupplyParameterFromForm]
+    public UserViewModel UserViewModel { get; set; } = new();
+
+
+    private async Task AuthenticateMethod()
+    {
+
+        var userAccount = db.Users.FirstOrDefault(x => x.Username == UserViewModel.Username);
+
+        if (userAccount == null || !BCrypt.Net.BCrypt.Verify(UserViewModel.Password, userAccount.PasswordHash))
+        {
+            errormessage = "Invalid username or Password";
+        }
+
+        var claim = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, UserViewModel.Username),
+            new Claim (ClaimTypes.Role, userAccount.Role)
+        };
+
+        var Identity = new ClaimsIdentity(claim, CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var principal = new ClaimsPrincipal(Identity);
+
+        await _httpContext.SignInAsync(principal);
+
+        navManager.NavigateTo("/");
+    }
+
+    
+}
