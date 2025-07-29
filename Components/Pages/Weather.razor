@@ -1,66 +1,85 @@
 ﻿@page "/weather"
 @using Microsoft.AspNetCore.Authorization
+@using WeatherApp.Services
+@inject WeatherService WeatherService
 @attribute [StreamRendering]
 @attribute [Authorize(Roles = "super")]
+@rendermode InteractiveServer
 
 <PageTitle>Weather</PageTitle>
+<h3>Check Weather</h3>
 
-<h1>Weather</h1>
-
-<p>This component demonstrates showing data.</p>
-
-@if (forecasts == null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Temp. (C)</th>
-                <th>Temp. (F)</th>
-                <th>Summary</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var forecast in forecasts)
+<div class="container" style="min-height: 80vh;">
+    <div class="row justify-content-center align-items-center" style="height: 20vh;">
+        <div class="col-md-7 col-lg-5">
+            <div class="input-group input-group-lg mb-3 shadow-sm rounded">
+                <input @bind="city" type="text" class="form-control rounded-start" placeholder="Enter city name..." />
+                <button type="button" class="btn btn-primary rounded-end" @onclick="GetWeather">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(error))
             {
-                <tr>
-                    <td>@forecast.Date.ToShortDateString()</td>
-                    <td>@forecast.TemperatureC</td>
-                    <td>@forecast.TemperatureF</td>
-                    <td>@forecast.Summary</td>
-                </tr>
+                <div class="alert alert-danger mt-3">@error</div>
             }
-        </tbody>
-    </table>
-}
+        </div>
+    </div>
+    @if (weather != null)
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-7 col-lg-5">
+                <div class="card shadow-lg border-0 rounded-4">
+                    <div class="card-body text-center py-4">
+                        <h4 class="card-title mb-1">
+                            <i class="bi bi-geo-alt text-primary"></i>
+                            @weather.location.name, @weather.location.country
+                        </h4>
+                        <div class="my-3">
+                            <img class="mx-auto d-block mb-2" src="https:@weather.current.condition.icon" alt="Weather icon" style="width:60px; height:60px;" />
+                        </div>
+                        <h5 class="mb-2 fw-bold">@weather.current.condition.text</h5>
+                        <p class="mb-1 fs-3">
+                            <span class="badge bg-info text-dark">
+                                @weather.current.temp_c &deg;C
+                            </span>
+                        </p>
+                        <p class="mb-0 text-muted">
+                            Feels like: @weather.current.feelslike_c &deg;C
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
 
 @code {
-    private WeatherForecast[]? forecasts;
+    private string city { get; set; } = "";
+    private WeatherApiResponse? weather;
+    private string? error;
 
-    protected override async Task OnInitializedAsync()
+    private async Task GetWeather()
     {
-        // Simulate asynchronous loading to demonstrate streaming rendering
-        await Task.Delay(500);
+        Console.WriteLine("Cityname "+city);
+        error = null;
+        weather = null;
 
-        var startDate = DateOnly.FromDateTime(DateTime.Now);
-        var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
-        forecasts = Enumerable.Range(1, 5).Select(index => new WeatherForecast
+        // Add this check:
+        if (string.IsNullOrWhiteSpace(city))
         {
-            Date = startDate.AddDays(index),
-            TemperatureC = Random.Shared.Next(-20, 55),
-            Summary = summaries[Random.Shared.Next(summaries.Length)]
-        }).ToArray();
-    }
+            error = "Please enter a city name.";
+            return;
+        }
 
-    private class WeatherForecast
-    {
-        public DateOnly Date { get; set; }
-        public int TemperatureC { get; set; }
-        public string? Summary { get; set; }
-        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+        try
+        {
+            weather = await WeatherService.GetWeatherAsync(city);
+            if (weather == null)
+                error = "City not found or API error.";
+        }
+        catch (Exception ex)
+        {
+            error = $"Error: {ex.Message}";
+        }
     }
 }

@@ -17,6 +17,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)))
 );
 
+
+
 builder.Services.AddHttpContextAccessor();
 
 // Add services to the container.
@@ -37,6 +39,7 @@ builder.Services.AddAuthentication((CookieAuthenticationDefaults.AuthenticationS
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
 
+builder.Services.AddHttpClient<WeatherApp.Services.WeatherService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
