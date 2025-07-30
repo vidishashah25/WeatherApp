@@ -1,0 +1,110 @@
+﻿@page "/favorites"
+@attribute [Authorize(Roles = "super")]
+@inject AppDbContext Db
+@inject WeatherApp.Services.WeatherService WeatherService
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using WeatherApp.Data
+@rendermode InteractiveServer
+
+<div class="min-h-screen bg-[#FBFFE4] px-4 py-10">
+    <h2 class="text-3xl font-bold text-center text-[#3D8D7A] mb-8">My Favorite Cities</h2>
+
+    @if (favoriteWeathers.Count == 0)
+    {
+        <div class="text-center text-[#3D8D7A] text-lg font-medium">No favorites added yet!</div>
+    }
+    else
+    {
+        <div class="flex flex-wrap justify-center gap-6">
+            @foreach (var fav in favoriteWeathers)
+            {
+                <div class="bg-white border border-[#A3D1C6] rounded-3xl shadow-lg w-80 p-6 text-center flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#3D8D7A] mb-2">
+                            <i class="bi bi-geo-alt-fill text-[#A3D1C6] mr-1"></i>
+                            @fav.Weather?.location?.name, @fav.Weather?.location?.country
+                        </h3>
+
+                        @if (fav.Weather?.current?.condition?.icon != null)
+                        {
+                            <img src="https:@fav.Weather.current.condition.icon"
+                                 alt="Weather icon"
+                                 class="mx-auto w-16 h-16 my-4" />
+                        }
+
+                        <p class="text-[#3D8D7A] text-lg font-medium mb-1">@fav.Weather?.current?.condition?.text</p>
+
+                        <span class="inline-block bg-[#A3D1C6] text-[#003C43] font-semibold rounded-full px-4 py-1 text-lg mb-1">
+                            @fav.Weather?.current?.temp_c &deg;C
+                        </span>
+
+                        <p class="text-sm text-[#3D8D7A]/80 mb-3">
+                            Feels like: @fav.Weather?.current?.feelslike_c &deg;C
+                        </p>
+                    </div>
+
+                    <button type="button"
+                            class="mt-4 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition"
+                            @onclick="() => RemoveFavoriteAsync(fav.FavoriteCityId)">
+                        Remove
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<FavoriteWeather> favoriteWeathers = new();
+
+    [CascadingParameter] private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+        var username = user.Identity?.Name;
+
+        var dbUser = Db.Users.FirstOrDefault(u => u.Username == username);
+        if (dbUser != null)
+        {
+            var favCities = Db.FavoriteCities.Where(f => f.UserId == dbUser.Id).ToList();
+
+            favoriteWeathers = new();
+            foreach (var fav in favCities)
+            {
+                var weather = await WeatherService.GetWeatherAsync(fav.CityName);
+                favoriteWeathers.Add(new FavoriteWeather
+                {
+                    FavoriteCityId = fav.Id,
+                    Weather = weather
+                });
+            }
+        }
+    }
+
+    private async Task RemoveFavoriteAsync(int id)
+    {
+        var fav = Db.FavoriteCities.FirstOrDefault(f => f.Id == id);
+        if (fav != null)
+        {
+            Db.FavoriteCities.Remove(fav);
+            await Db.SaveChangesAsync();
+
+            var removed = favoriteWeathers.FirstOrDefault(f => f.FavoriteCityId == id);
+            if (removed != null)
+            {
+                favoriteWeathers.Remove(removed);
+            }
+
+            StateHasChanged(); // force re-render
+        }
+    }
+
+    public class FavoriteWeather
+    {
+        public int FavoriteCityId { get; set; }
+        public WeatherApp.Services.WeatherApiResponse? Weather { get; set; }
+    }
+}

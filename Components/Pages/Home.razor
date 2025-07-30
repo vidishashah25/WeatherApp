@@ -1,7 +1,53 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard</PageTitle>
+<div class="min-h-screen  flex items-center justify-center px-4">
+    <div class="bg-white border border-[#B3D8A8] shadow-2xl rounded-3xl p-10 w-full max-w-md text-center">
 
-<h1 class="text-3xl text-green-500 font-bold underline">Hello, world!</h1>
+        <!-- Avatar Circle -->
+        <div class="flex justify-center mb-6">
+            <div class="w-20 h-20 rounded-full bg-[#3D8D7A] text-[#FBFFE4] flex items-center justify-center text-3xl font-bold shadow-md">
+                @((username?.FirstOrDefault() ?? '?').ToString().ToUpper())
+            </div>
+        </div>
 
-Welcome to your new app.
+        <!-- Welcome Message -->
+        <h1 class="text-3xl font-bold text-[#3D8D7A] mb-2">Welcome to <span class="text-[#A3D1C6]">WeatherApp</span></h1>
+
+        @if (isLoading)
+        {
+            <p class="text-[#3D8D7A] text-sm animate-pulse">Loading your info...</p>
+        }
+        else if (!string.IsNullOrEmpty(username))
+        {
+            <p class="text-lg text-[#3D8D7A]">Hello, <span class="font-semibold text-[#A3D1C6]">@username</span> 👋</p>
+            <p class="mt-1 text-[#3D8D7A]/80 text-sm">Here’s your personalized weather dashboard.</p>
+        }
+        else
+        {
+            <p class="text-red-500 font-medium">You're not logged in.</p>
+            <p class="text-gray-500 mt-1 text-sm">Please log in to dashboard. <a href="login" class="text-blue-500">Login</a></p>
+        }
+
+    </div>
+</div>
+
+@code {
+    private string? username;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            username = user.Identity.Name;
+        }
+
+        isLoading = false;
+    }
+}

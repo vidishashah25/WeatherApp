@@ -1,53 +1,72 @@
 ﻿@page "/weather"
 @using Microsoft.AspNetCore.Authorization
+@using WeatherApp.Models
 @using WeatherApp.Services
 @inject WeatherService WeatherService
 @attribute [StreamRendering]
-@attribute [Authorize(Roles = "super")]
+@attribute [Authorize(Roles = "super,simple")]
+@inject WeatherApp.Data.AppDbContext Db
 @rendermode InteractiveServer
 
 <PageTitle>Weather</PageTitle>
-<h3>Check Weather</h3>
+<div class="min-h-screen bg-[#FBFFE4] flex flex-col items-center px-4 py-10">
 
-<div class="container" style="min-height: 80vh;">
-    <div class="row justify-content-center align-items-center" style="height: 20vh;">
-        <div class="col-md-7 col-lg-5">
-            <div class="input-group input-group-lg mb-3 shadow-sm rounded">
-                <input @bind="city" type="text" class="form-control rounded-start" placeholder="Enter city name..." />
-                <button type="button" class="btn btn-primary rounded-end" @onclick="GetWeather">
-                    <i class="bi bi-search"></i> Search
-                </button>
-            </div>
-            @if (!string.IsNullOrEmpty(error))
-            {
-                <div class="alert alert-danger mt-3">@error</div>
-            }
+    <h2 class="text-3xl font-bold text-[#3D8D7A] mb-8">Check Weather</h2>
+
+    <!-- Search Input -->
+    <div class="w-full max-w-md mb-6">
+        <div class="flex shadow-md rounded-lg overflow-hidden border border-[#A3D1C6]">
+            <input @bind="city"
+                   type="text"
+                   class="flex-1 px-4 py-2 focus:outline-none text-[#3D8D7A]"
+                   placeholder="Enter city name..." />
+            <button @onclick="GetWeather"
+                    class="bg-[#3D8D7A] text-white px-5 hover:bg-[#2f6e63] transition">
+                <i class="bi bi-search"></i> Search
+            </button>
         </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="bg-red-100 text-red-700 px-4 py-2 rounded-md mt-3 text-sm">@error</div>
+        }
     </div>
+
+    <!-- Weather Card -->
     @if (weather != null)
     {
-        <div class="row justify-content-center">
-            <div class="col-md-7 col-lg-5">
-                <div class="card shadow-lg border-0 rounded-4">
-                    <div class="card-body text-center py-4">
-                        <h4 class="card-title mb-1">
-                            <i class="bi bi-geo-alt text-primary"></i>
-                            @weather.location.name, @weather.location.country
-                        </h4>
-                        <div class="my-3">
-                            <img class="mx-auto d-block mb-2" src="https:@weather.current.condition.icon" alt="Weather icon" style="width:60px; height:60px;" />
-                        </div>
-                        <h5 class="mb-2 fw-bold">@weather.current.condition.text</h5>
-                        <p class="mb-1 fs-3">
-                            <span class="badge bg-info text-dark">
-                                @weather.current.temp_c &deg;C
-                            </span>
-                        </p>
-                        <p class="mb-0 text-muted">
-                            Feels like: @weather.current.feelslike_c &deg;C
-                        </p>
-                    </div>
+        <div class="w-full max-w-md">
+            <div class="bg-white border border-[#B3D8A8] rounded-3xl shadow-lg p-6 text-center">
+
+                <h3 class="text-2xl font-semibold text-[#3D8D7A] mb-2">
+                    <i class="bi bi-geo-alt-fill text-[#A3D1C6] mr-1"></i>
+                    @weather.location.name, @weather.location.country
+                </h3>
+
+                <div class="my-4">
+                    <img src="https:@weather.current.condition.icon"
+                         alt="Weather icon"
+                         class="mx-auto w-16 h-16" />
                 </div>
+
+                <p class="text-xl text-[#3D8D7A] font-medium mb-2">@weather.current.condition.text</p>
+
+                <div class="mb-1">
+                    <span class="inline-block px-3 py-1 bg-[#A3D1C6] text-[#003C43] rounded-full font-semibold text-lg">
+                        @weather.current.temp_c &deg;C
+                    </span>
+                </div>
+
+                <p class="text-sm text-[#3D8D7A]/80">
+                    Feels like: @weather.current.feelslike_c &deg;C
+                </p>
+
+                <AuthorizeView Roles="super">
+                    <button class="mt-6 bg-[#3D8D7A] text-white px-5 py-2 rounded-md hover:bg-[#2f6e63] transition"
+                            @onclick="AddFavoriteCity">
+                        <i class="bi bi-star-fill mr-1"></i> Add to Favorites
+                    </button>
+                </AuthorizeView>
             </div>
         </div>
     }
@@ -57,6 +76,47 @@
     private string city { get; set; } = "";
     private WeatherApiResponse? weather;
     private string? error;
+
+    [CascadingParameter] private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    private async Task AddFavoriteCity()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true && user.IsInRole("super"))
+        {
+            var dbUser = Db.Users.FirstOrDefault(u => u.Username == user.Identity.Name);
+            if (dbUser == null)
+                return;
+
+            // Count existing favorites
+            int favCount = Db.FavoriteCities.Count(f => f.UserId == dbUser.Id);
+
+            if (favCount >= 5)
+            {
+                error = "You can only add up to 5 favorite cities!";
+                return;
+            }
+
+            // Prevent duplicate city
+            var exists = Db.FavoriteCities.Any(f => f.CityName == city && f.UserId == dbUser.Id);
+            if (!exists)
+            {
+                Db.FavoriteCities.Add(new FavoriteCity
+                {
+                    CityName = city,
+                    UserId = dbUser.Id
+                });
+                await Db.SaveChangesAsync();
+                error = null; // Clear error if previously set
+            }
+            else
+            {
+                error = "This city is already in your favorites!";
+            }
+        }
+    }
 
     private async Task GetWeather()
     {
