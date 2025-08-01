@@ -33,3 +33,40 @@ A responsive, role-based weather dashboard built with **Blazor Wep App** using a
 ```bash
 git clone https://github.com/vidishashah25/WeatherApp.git
 cd WeatherApp
+
+## Screenshots
+
+### Registration Page
+
+![Registration Screenshot](images/Registration.JPG)
+
+### Login Page
+
+![Login Screenshot](images/Login.JPG)
+
+### Login as Super user role
+
+### Dashboard Page 
+
+![Dashboard Screenshot](images/Dashboard.JPG)
+
+### Weather Page 
+
+![Weather Screenshot](images/Weather.JPG)
+
+### FavoriteCities Page 
+
+![FavoriteCities Screenshot](images/FavoriteCities.JPG)
+
+### Login as Simple user role
+
+### Dashboard Page 
+
+![Dashboard Screenshot](images/simple_dashboard.JPG)
+
+### Weather Page 
+
+![Weather Screenshot](images/simple_weather.JPG)
+
+
+
