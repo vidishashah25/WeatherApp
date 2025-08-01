@@ -9,8 +9,8 @@
 @rendermode InteractiveServer
 
 <PageTitle>Weather</PageTitle>
-<div class="min-h-screen bg-[#FBFFE4] flex flex-col items-center px-4 py-10">
 
+<div class="min-h-screen bg-[#FBFFE4] flex flex-col items-center px-4 py-10">
     <h2 class="text-3xl font-bold text-[#3D8D7A] mb-8">Check Weather</h2>
 
     <!-- Search Input -->
@@ -32,12 +32,12 @@
         }
     </div>
 
-    <!-- Weather Card -->
+    <!-- Weather Display -->
     @if (weather != null)
     {
-        <div class="w-full max-w-md">
-            <div class="bg-white border border-[#B3D8A8] rounded-3xl shadow-lg p-6 text-center">
-
+        <div class="w-full max-w-5xl">
+            <!-- Current Weather -->
+            <div class="bg-white border border-[#B3D8A8] rounded-3xl shadow-lg p-6 text-center mb-10">
                 <h3 class="text-2xl font-semibold text-[#3D8D7A] mb-2">
                     <i class="bi bi-geo-alt-fill text-[#A3D1C6] mr-1"></i>
                     @weather.location.name, @weather.location.country
@@ -67,6 +67,29 @@
                         <i class="bi bi-star-fill mr-1"></i> Add to Favorites
                     </button>
                 </AuthorizeView>
+                @if (!string.IsNullOrEmpty(successMessage))
+                {
+                    <div class="mt-4 text-green-700 bg-green-100 px-4 py-2 rounded text-sm">
+                        @successMessage
+                    </div>
+                }
+            </div>
+
+            <!-- 3-Day Forecast -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                @foreach (var day in weather.forecast.forecastday)
+                {
+                    <div class="bg-white rounded-2xl shadow-md p-4 text-center border border-[#A3D1C6]">
+                        <p class="text-lg font-semibold text-[#3D8D7A] mb-2">@day.date</p>
+                        <img src="https:@day.day.condition.icon" alt="icon" class="w-12 h-12 mx-auto mb-2" />
+                        <p class="text-[#3D8D7A] text-sm mb-2">@day.day.condition.text</p>
+                        <div class="text-sm text-[#003C43] space-y-1">
+                            <div><strong>Max:</strong> @day.day.maxtemp_c &deg;C</div>
+                            <div><strong>Min:</strong> @day.day.mintemp_c &deg;C</div>
+                            <div><strong>Avg:</strong> @day.day.avgtemp_c &deg;C</div>
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     }
@@ -76,11 +99,15 @@
     private string city { get; set; } = "";
     private WeatherApiResponse? weather;
     private string? error;
+    private string? successMessage;
 
     [CascadingParameter] private Task<AuthenticationState> authenticationStateTask { get; set; }
 
     private async Task AddFavoriteCity()
     {
+        error = null;
+        successMessage = null;
+
         var authState = await authenticationStateTask;
         var user = authState.User;
 
@@ -90,17 +117,14 @@
             if (dbUser == null)
                 return;
 
-            // Count existing favorites
             int favCount = Db.FavoriteCities.Count(f => f.UserId == dbUser.Id);
-
             if (favCount >= 5)
             {
                 error = "You can only add up to 5 favorite cities!";
                 return;
             }
 
-            // Prevent duplicate city
-            var exists = Db.FavoriteCities.Any(f => f.CityName == city && f.UserId == dbUser.Id);
+            bool exists = Db.FavoriteCities.Any(f => f.CityName == city && f.UserId == dbUser.Id);
             if (!exists)
             {
                 Db.FavoriteCities.Add(new FavoriteCity
@@ -109,7 +133,7 @@
                     UserId = dbUser.Id
                 });
                 await Db.SaveChangesAsync();
-                error = null; // Clear error if previously set
+                successMessage = $"'{city}' added to favorites!";
             }
             else
             {
@@ -120,11 +144,10 @@
 
     private async Task GetWeather()
     {
-        Console.WriteLine("Cityname "+city);
         error = null;
+        successMessage = null;
         weather = null;
 
-        // Add this check:
         if (string.IsNullOrWhiteSpace(city))
         {
             error = "Please enter a city name.";
